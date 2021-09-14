@@ -1,0 +1,15 @@
+{
+  "name": "fictional-university-theme",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Israel Martins",
+  "license": "ISC",
+  "dependencies": {
+    "@wordpress/scripts": "^18.0.0"
+  }
+}

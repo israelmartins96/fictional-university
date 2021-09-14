@@ -1,0 +1,148 @@
+(function($) {
+    class Search {
+        // 1. Describe and initiate object
+        constructor() {
+            this.addSearchHTML();
+            this.resultsDiv = $('#search-overlay__results');
+            this.openButton = $('.js-search-trigger');
+            this.closeButton = $('.search-overlay__close');
+            this.searchOverlay = $('.search-overlay');
+            this.searchField = $('#search-term');
+            this.events();
+            this.overlayOpen = false;
+            this.isSpinnerVisible = false;
+            this.previousValue;
+            this.typingTimer;
+        }
+
+        // 2. Events
+        events() {
+            this.openButton.on('click', this.openOverlay.bind(this));
+            this.closeButton.on('click', this.closeOverlay.bind(this));
+            $(document).on('keydown', this.overlayOnKeyPress.bind(this));
+            this.searchField.on('keyup', this.typingLogic.bind(this));
+        }
+
+        // 3. Methods
+        addSearchHTML() {
+            $('body').append(`
+                <div class="search-overlay">
+                    <div class="search-overlay__top">
+                        <div class="container">
+                            <i class="fa fa-search search-overlay__icon" aria-hidden="true"></i>
+                            <input type="text" class="search-term" id="search-term" placeholder="What are you looking for?" autocomplete="off">
+                            <i class="fa fa-window-close search-overlay__close" aria-hidden="true"></i>
+                        </div>
+                    </div>
+
+                    <div class="container">
+                        <div id="search-overlay__results"></div>
+                    </div>
+                </div>
+            `);
+        }
+
+        openOverlay() {
+            this.searchOverlay.addClass('search-overlay--active');
+            $('body').addClass('body-no-scroll');
+            setTimeout(() => this.searchField.focus(), 100);
+            this.overlayOpen = true;
+            return false;
+        }
+
+        closeOverlay() {
+            this.searchOverlay.removeClass('search-overlay--active');
+            $('body').removeClass('body-no-scroll');
+            $('body').removeAttr('class');
+            setTimeout(() => this.searchField.val(''), 100);
+            this.overlayOpen = false;
+        }
+
+        overlayOnKeyPress(key) {
+            if ((key.which == 83 || key.keyCode == 83) && !this.overlayOpen && !$('input, textarea').is(':focus')) {
+                this.openOverlay();
+            }
+
+            if ((key.which == 27 || key.keyCode == 27) && this.overlayOpen) {
+                this.closeOverlay();
+            }
+        }
+
+        typingLogic() {
+            if (this.searchField.val() != this.previousValue) {
+                clearTimeout(this.typingTimer);
+
+                if (this.searchField.val()) {
+                    if (!this.isSpinnerVisible) {
+                        this.resultsDiv.html('<div class="spinner-loader"></div>');
+                        this.isSpinnerVisible = true;
+                    }
+                    this.typingTimer = setTimeout(this.getResults.bind(this), 500);
+                } else {
+                    this.resultsDiv.html('');
+                    this.isSpinnerVisible = false;
+                }
+            }
+            this.previousValue = this.searchField.val();
+        }
+
+        getResults() {
+            if (this.searchField.val()) {
+                $.getJSON(universityData.root_url + '/wp-json/university/v1/search?term=' + this.searchField.val(), (results) => {
+                    this.resultsDiv.html(`
+                        <div class="row">
+                            <div class="one-third">
+                                <h2 class="search-overlay__section-title">General Information</h2>
+                                ${results.general_info.length ? '<ul class="link-list min-list">' : '<p>No general information matches that search.</p>'}
+                                    ${results.general_info.map(item => `<li><a href="${item.permalink}">${item.title}</a>${item.post_type == 'post' ? ` by ${item.author_name}` : ''}</li>`).join('')}
+                                ${results.general_info.length ? '</ul>' : ''}
+                            </div>
+                            <div class="one-third">
+                                <h2 class="search-overlay__section-title">Programs</h2>
+                                ${results.programs.length ? '<ul class="link-list min-list">' : `<p>No program matches that search. <a href="${universityData.root_url}/programs">View all programs</a></p>`}
+                                    ${results.programs.map(item => `<li><a href="${item.permalink}">${item.title}</a></li>`).join('')}
+                                ${results.programs.length ? '</ul>' : ''}
+                                
+                                <h2 class="search-overlay__section-title">Professors</h2>
+                                ${results.professors.length ? '<ul class="professor-cards">' : `<p>No professor matches that search.</p>`}
+                                    ${results.professors.map(item => `
+                                    <li class="professor-card__list-item">
+                                        <a class="professor-card" href="${item.permalink}">
+                                            <img class="professor-card__image" src="${item.image}" alt="">
+                                            <span class="professor-card__name">${item.name}</span>
+                                        </a>
+                                    </li>
+                                    `).join('')}
+                                ${results.professors.length ? '</ul>' : ''}
+                            </div>
+                            <div class="one-third">
+                                <h2 class="search-overlay__section-title">Campuses</h2>
+                                ${results.campuses.length ? '<ul class="link-list min-list">' : `<p>No campus matches that search. <a href="${universityData.root_url}/campuses">View all campuses</a></p>`}
+                                    ${results.campuses.map(item => `<li><a href="${item.permalink}">${item.title}</a></li>`).join('')}
+                                ${results.campuses.length ? '</ul>' : ''}
+
+                                <h2 class="search-overlay__section-title">Events</h2>
+                                ${results.events.length ? '' : `<p>No event matches that search. <a href="${universityData.root_url}/events">View all events</a></p>`}
+                                    ${results.events.map(item => `
+                                    <div class="event-summary">
+                                    <a class="event-summary__date t-center" href="${item.permalink}">
+                                        <span class="event-summary__month">${item.month}</span>
+                                        <span class="event-summary__day">${item.day}</span>
+                                    </a>
+                                    <div class="event-summary__content">
+                                        <h5 class="event-summary__title headline headline--tiny"><a href="${item.permalink}">${item.title}</a></h5>
+                                            <p>${item.description} <a href="${item.permalink}" class="nu gray">Learn more</a></p>
+                                        </div>
+                                    </div>
+                                    `).join('')}
+                            </div>
+                        </div>
+                    `);
+                    this.isSpinnerVisible = false;
+                });
+            }
+        }
+    }
+
+    const search = new Search();
+})(jQuery);
